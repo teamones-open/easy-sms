@@ -10,4 +10,4 @@ Based on upstream EasySms 3.5.0 (6ec405e467df6189ffcffe19f3b4ef453cb3ced3), MIT;
 - Legacy signing uses random_int; malformed provider responses fail as gateway errors under PHP 8.5/E_ALL.
 - Run composer test:compatibility and the upstream QcloudGatewayTest. Tests are mocked and send no messages.
 
-Teamones versions start at 1.0.0 independently of upstream 3.5.0. Install with ^1.0. The Composer replace declaration identifies the compatible upstream API version, not the fork release number.
+Teamones versions start at 10.0.0 independently of upstream 3.5.0 and its historical 1.x tags. Install with ^10.0. The Composer replace declaration identifies the compatible upstream API version, not the fork release number.

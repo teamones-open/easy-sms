@@ -1,4 +1,4 @@
-> Teamones PHP 8.5 compatibility fork: install `teamones/easy-sms:^1.0`. The original namespace and both Tencent credential protocols are preserved. See [TEAMONES.md](TEAMONES.md).
+> Teamones PHP 8.5 compatibility fork: install `teamones/easy-sms:^10.0`. The original namespace and both Tencent credential protocols are preserved. See [TEAMONES.md](TEAMONES.md).
 
 <h1 align="center">Easy SMS</h1>
 
