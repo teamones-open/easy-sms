@@ -1,6 +1,6 @@
 {
-    "name": "overtrue/easy-sms",
-    "description": "The easiest way to send short message.",
+    "name": "teamones/easy-sms",
+    "description": "Teamones PHP 8.5 compatibility fork of EasySms 3.5 with existing Tencent AppKey support",
     "type": "library",
     "require": {
         "guzzlehttp/guzzle": "^7.0 || ^8.0",
@@ -38,6 +38,14 @@
         "fix": "pint",
         "test": "phpunit --colors",
         "psalm": "psalm --show-info=true --no-cache",
-        "psalm-fix": "psalm --no-cache --alter --issues=MissingReturnType,MissingParamType"
+        "psalm-fix": "psalm --no-cache --alter --issues=MissingReturnType,MissingParamType",
+        "test:compatibility": "@php -d error_reporting=30719 compatibility/qcloud_php85.php"
+    },
+    "replace": {
+        "overtrue/easy-sms": "self.version"
+    },
+    "support": {
+        "issues": "https://github.com/teamones-open/easy-sms/issues",
+        "source": "https://github.com/teamones-open/easy-sms"
     }
 }

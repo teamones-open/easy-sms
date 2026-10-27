@@ -27,6 +27,24 @@ class QcloudGateway extends Gateway
 {
     use HasHttpRequest;
 
+    public const LEGACY_ENDPOINT_URL = 'https://yun.tim.qq.com/v5/tlssmssvr/sendsms';
+
+    private string $apiVersion;
+
+    public function __construct(array $config)
+    {
+        // Existing AppKey-only deployments keep their wire protocol without service adapters.
+        $hasModernCredentials = ! empty($config['secret_id']) && ! empty($config['secret_key']);
+        $this->apiVersion = $config['api_version'] ?? (! $hasModernCredentials && ! empty($config['app_key']) ? 'legacy' : 'v3');
+        if (! in_array($this->apiVersion, ['legacy', 'v3'], true)) {
+            throw new \InvalidArgumentException('Unsupported sms_api_version; use legacy or v3.');
+        }
+        if ($this->apiVersion === 'legacy' && empty($config['endpoint'])) {
+            $config['endpoint'] = self::LEGACY_ENDPOINT_URL;
+        }
+        parent::__construct($config);
+    }
+
     public const ENDPOINT_URL = 'https://sms.tencentcloudapi.com';
 
     public const ENDPOINT_SERVICE = 'sms';
@@ -46,6 +64,10 @@ class QcloudGateway extends Gateway
      */
     public function send(PhoneNumberInterface $to, MessageInterface $message, Config $config)
     {
+        if ($this->apiVersion === 'legacy') {
+            return $this->sendLegacy($to, $message, $config);
+        }
+
         $data = $message->getData($this);
 
         $signName = ! empty($data['sign_name']) ? $data['sign_name'] : $config->get('sign_name', '');
@@ -131,5 +153,84 @@ class QcloudGateway extends Gateway
         return 'TC3-HMAC-SHA256'
             .' Credential='.$secretId.'/'.$date.'/'.self::ENDPOINT_SERVICE.'/tc3_request'
             .', SignedHeaders=content-type;host, Signature='.$signature;
+    }
+
+    private function sendLegacy(PhoneNumberInterface $to, MessageInterface $message, Config $config)
+    {
+        $data = $message->getData($this);
+
+        $signName = ! empty($data['sign_name']) ? $data['sign_name'] : $config->get('sign_name', '');
+
+        unset($data['sign_name']);
+
+        $msg = $message->getContent($this);
+        if (! empty($msg) && mb_substr($msg, 0, 1) != '【' && ! empty($signName)) {
+            $msg = '【'.$signName.'】'.$msg;
+        }
+
+        $type = ! empty($data['type']) ? $data['type'] : 0;
+        $params = [
+            'tel' => [
+                'nationcode' => $to->getIDDCode() ?: 86,
+                'mobile' => $to->getNumber(),
+            ],
+            'type' => $type,
+            'msg' => $msg,
+            'time' => time(),
+            'extend' => '',
+            'ext' => '',
+        ];
+        if (! is_null($message->getTemplate($this)) && is_array($data)) {
+            unset($params['msg']);
+            $params['params'] = array_values($data);
+            $params['tpl_id'] = $message->getTemplate($this);
+            $params['sign'] = $signName;
+        }
+        $random = (string) random_int(1000000000, 9999999999);
+
+        $params['sig'] = $this->generateLegacySign($params, $random);
+
+        $endpoint = $config->get('endpoint') ?: $this->config->get('endpoint', self::LEGACY_ENDPOINT_URL);
+        if (! is_string($endpoint) || $endpoint === '' || ! in_array(parse_url($endpoint, PHP_URL_SCHEME), ['http', 'https'], true)
+            || ! parse_url($endpoint, PHP_URL_HOST) || parse_url($endpoint, PHP_URL_FRAGMENT) !== null) {
+            throw new \InvalidArgumentException('Configure a valid SMS gateway endpoint in sms.gateways.qcloud.endpoint.');
+        }
+        $url = $endpoint.(str_contains($endpoint, '?') ? '&' : '?').http_build_query([
+            'sdkappid' => $config->get('sdk_app_id'), 'random' => $random,
+        ], '', '&', PHP_QUERY_RFC3986);
+
+        $result = $this->request('post', $url, [
+            'headers' => ['Accept' => 'application/json'],
+            'json' => $params,
+        ]);
+
+        if (! is_array($result) || ! array_key_exists('result', $result)) {
+            throw new GatewayErrorException('Invalid legacy SMS gateway response.', 0, is_array($result) ? $result : []);
+        }
+        if ($result['result'] != 0) {
+            throw new GatewayErrorException($result['errmsg'] ?? 'Legacy SMS gateway rejected the request.', $result['result'], $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Generate Sign.
+     *
+     * @param  array  $params
+     * @param  string  $random
+     * @return string
+     */
+    protected function generateLegacySign($params, $random)
+    {
+        ksort($params);
+
+        return hash('sha256', sprintf(
+            'appkey=%s&random=%s&time=%s&mobile=%s',
+            $this->config->get('app_key'),
+            $random,
+            $params['time'],
+            $params['tel']['mobile']
+        ), false);
     }
 }
