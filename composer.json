@@ -42,7 +42,7 @@
         "test:compatibility": "@php -d error_reporting=30719 compatibility/qcloud_php85.php"
     },
     "replace": {
-        "overtrue/easy-sms": "self.version"
+        "overtrue/easy-sms": "3.5.0"
     },
     "support": {
         "issues": "https://github.com/teamones-open/easy-sms/issues",
